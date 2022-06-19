@@ -32,6 +32,20 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "stm32l0xx_ll_adc.h"
+#include "stm32l0xx_it.h"
+// #include "stm32l0xx_ll_gpio.h"
+//#include "stm32l0xx_ll_rcc.h"
+/*
+
+#include "stm32l0xx_ll_bus.h"
+#include "stm32l0xx_ll_cortex.h"
+#include "stm32l0xx_ll_system.h"
+#include "stm32g4xx_ll_utils.h"
+#include "stm32g4xx_ll_pwr.h"
+#include "stm32g4xx_ll_dma.h"
+#include "stm32g4xx_ll_exti.h"
+*/
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -57,6 +71,12 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define HOST_RST_Pin GPIO_PIN_0
+#define HOST_RST_GPIO_Port GPIOA
+#define LED_RED_Pin GPIO_PIN_0
+#define LED_RED_GPIO_Port GPIOB
+#define LED_GREEN_Pin GPIO_PIN_1
+#define LED_GREEN_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
