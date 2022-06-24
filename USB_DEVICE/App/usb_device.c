@@ -1,100 +1,59 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : usb_device.c
-  * @version        : v2.0_Cube
-  * @brief          : This file implements the USB Device
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2022 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-
-/* Includes ------------------------------------------------------------------*/
-
-#include "usb_device.h"
 #include "usbd_core.h"
 #include "usbd_desc.h"
-#include "usbd_customhid.h"
-#include "usbd_custom_hid_if.h"
+#include "usbd_composite.h"
+#include "usb_device.h"
 
-/* USER CODE BEGIN Includes */
+USBD_Handle hUsbDevice;
 
-/* USER CODE END Includes */
+USBD_CDC_Handle g_cdc0;
+USBD_CDC_Handle g_cdc1;
 
-/* USER CODE BEGIN PV */
-/* Private variables ---------------------------------------------------------*/
+union _USBD_ConfigDescExt USBD_ConfigDescExt = {
+	.config_desc = {
+		.bLength = sizeof(USBD_ConfigDesc),
+		.bDescriptorType = USB_DESC_TYPE_CONFIGURATION,
+		.wTotalLength = TBD,
+		.bNumInterfaces = TBD,
+		.bConfigurationValue = TBD,
+		.iConfiguration = 2,
+		.bmAttributes = 0xC0,
+		.bMaxPower = 50
+	}
+};
 
-/* USER CODE END PV */
-
-/* USER CODE BEGIN PFP */
-/* Private function prototypes -----------------------------------------------*/
-
-/* USER CODE END PFP */
-
-/* USB Device Core handle declaration. */
-USBD_HandleTypeDef hUsbDeviceFS;
-
-/*
- * -- Insert your variables declaration here --
- */
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
-
-/*
- * -- Insert your external function declaration here --
- */
-/* USER CODE BEGIN 1 */
-
-/* USER CODE END 1 */
-
-/**
-  * Init USB device Library, add supported class and start the library
-  * @retval None
-  */
 void MX_USB_DEVICE_Init(void)
 {
-  /* USER CODE BEGIN USB_DEVICE_Init_PreTreatment */
+	USBD_Handle *pdev = &hUsbDevice;
 
-  /* USER CODE END USB_DEVICE_Init_PreTreatment */
+    /* Init Device Library, add supported class and start the library. */
+	if (USBD_Init(pdev, &FS_Desc, DEVICE_FS) != USBD_OK) {
+		Error_Handler();
+	}
 
-  /* Init Device Library, add supported class and start the library. */
-  if (USBD_Init(&hUsbDeviceFS, &FS_Desc, DEVICE_FS) != USBD_OK)
-  {
-    Error_Handler();
-  }
-  if (USBD_RegisterClass(&hUsbDeviceFS, &USBD_CUSTOM_HID) != USBD_OK)
-  {
-    Error_Handler();
-  }
-  if (USBD_CUSTOM_HID_RegisterInterface(&hUsbDeviceFS, &USBD_CustomHID_fops_FS) != USBD_OK)
-  {
-    Error_Handler();
-  }
-  if (USBD_Start(&hUsbDeviceFS) != USBD_OK)
-  {
-    Error_Handler();
-  }
+	pdev->pClass = &USBD_Class_Composite;
 
-  /* USER CODE BEGIN USB_DEVICE_Init_PostTreatment */
+	pdev->config_desc = &USBD_ConfigDescExt.config_desc;
+	pdev->config_desc->bLength = sizeof(USBD_ConfigDesc);
+	pdev->config_desc->wTotalLength = host2usb_u16(sizeof(USBD_ConfigDesc));
+	pdev->config_desc->bConfigurationValue = 1;
 
-  /* USER CODE END USB_DEVICE_Init_PostTreatment */
+	{ /* Link interfaces into composite class */
+		int ep_in_use = 1;
+		int if_in_use = 0;
+		HID_Register(&g_hid0, &pdev->intf[0], pdev->config_desc, &if_in_use, &ep_in_use);
+		CDC_Register(&g_cdc0, &pdev->intf[1], pdev->config_desc, &if_in_use, &ep_in_use);
+		CDC_Register(&g_cdc1, &pdev->intf[2], pdev->config_desc, &if_in_use, &ep_in_use);
+
+		pdev->config_desc->bNumInterfaces = if_in_use;
+	}
+
+	/*
+	 * Enable interrupts and enable D+ pull-up resistor
+	 * to notify host that we've attached to the USB bus
+	 */
+	if (USBD_Start(&hUsbDevice) != USBD_OK) {
+		Error_Handler();
+	}
+
 }
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
 

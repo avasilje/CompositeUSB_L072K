@@ -54,7 +54,16 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include <assert.h>
 #include "stm32l0xx_hal.h"
+
+#define PMA_BLOCK_SIZE_EXP 5
+#define PMA_BLOCK_SIZE (1 << PMA_BLOCK_SIZE_EXP)
+#define PMA_BLOCKS_NUM (1024 / PMA_BLOCK_SIZE)
+
+// Note: pma_map - uses 32bit word for segment marking
+// #include "main.h"
+// CTASSERT(PMA_BLOCKS_NUM <= 32);
 
 /** @addtogroup STM32L0xx_HAL_Driver
   * @{
@@ -112,6 +121,51 @@ static uint16_t HAL_PCD_EP_DB_Receive(PCD_HandleTypeDef *hpcd, PCD_EPTypeDef *ep
 @endverbatim
   * @{
   */
+
+void HAL_PCD_PMA_Free(PCD_HandleTypeDef *hpcd, uint32_t ep_pmaadress, uint32_t ep_mps)
+{
+	uint32_t ep_map;
+
+	int blocks_num = (ep_mps + PMA_BLOCK_SIZE - 1) >> PMA_BLOCK_SIZE_EXP;
+
+	ep_map = (blocks_num == 32) ? UINT32_MAX : (1 << blocks_num) - 1;
+	ep_map <<= ep_pmaadress >> PMA_BLOCK_SIZE_EXP;
+
+	/* Sanity check. All blocks to be allocated
+	 * have to be marked as occupied
+  */
+	assert((ep_map & hpcd->pma_map) == ep_map);
+
+	/* Clear map */
+	hpcd->pma_map &= ~ep_map;
+}
+
+uint32_t HAL_PCD_PMA_Alloc(PCD_HandleTypeDef *hpcd, uint32_t ep_mps)
+{
+	int i, blocks_num;
+	uint32_t ep_map = 0;
+	uint32_t ep_pmaaddress = UINT32_MAX;
+
+	/*
+	 * 1024Bytes split by 32bytes blocks => 32 blocks
+	 * pma_map => 1 bit one block. 1 - occupied, 0 - free.
+	 * LSB = 0x0000
+  */
+	blocks_num = (ep_mps + PMA_BLOCK_SIZE - 1) >> PMA_BLOCK_SIZE_EXP;
+	ep_map = (blocks_num == 32) ? UINT32_MAX : (1 << blocks_num) - 1;
+
+	for (i = 0; i <= PMA_BLOCKS_NUM - blocks_num; i++) {
+		if ((ep_map & hpcd->pma_map) == 0) {
+			/* Free slot were found - allocate them */
+			hpcd->pma_map |= ep_map;
+			ep_pmaaddress = i * PMA_BLOCK_SIZE;
+			break;
+		}
+		ep_map = ep_map << 1;
+	}
+
+	return ep_pmaaddress;
+}
 
 /**
   * @brief  Initializes the PCD according to the specified
@@ -1382,6 +1436,11 @@ HAL_StatusTypeDef HAL_PCD_EP_Open(PCD_HandleTypeDef *hpcd, uint8_t ep_addr,
     ep->is_in = 0U;
   }
 
+  // Allocate PMA memory. No memory - no party
+  uint32_t pma_addr = HAL_PCD_PMA_Alloc(hpcd, ep_mps);
+  assert(pma_addr != UINT32_MAX);
+  HAL_PCDEx_PMAConfig(hpcd, ep_addr, PCD_SNG_BUF, pma_addr);
+
   ep->num = ep_addr & EP_ADDR_MSK;
   ep->maxpacket = ep_mps;
   ep->type = ep_type;
@@ -1426,9 +1485,19 @@ HAL_StatusTypeDef HAL_PCD_EP_Close(PCD_HandleTypeDef *hpcd, uint8_t ep_addr)
   }
   ep->num   = ep_addr & EP_ADDR_MSK;
 
+  if (ep->maxpacket == 0)
+  {
+    // EP not opened yet
+    return HAL_OK;
+  }
+
   __HAL_LOCK(hpcd);
   (void)USB_DeactivateEndpoint(hpcd->Instance, ep);
   __HAL_UNLOCK(hpcd);
+
+  HAL_PCD_PMA_Free(hpcd,ep->pmaadress,ep->maxpacket);
+  ep->maxpacket = 0;
+
   return HAL_OK;
 }
 

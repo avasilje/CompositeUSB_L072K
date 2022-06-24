@@ -7,12 +7,13 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2022 STMicroelectronics.
-  * All rights reserved.
+  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * All rights reserved.</center></h2>
   *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
+  * This software component is licensed by ST under Ultimate Liberty license
+  * SLA0044, the "License"; You may not use this file except in compliance with
+  * the License. You may obtain a copy of the License at:
+  *                             www.st.com/SLA0044
   *
   ******************************************************************************
   */
@@ -31,15 +32,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "main.h"
-#include "stm32l0xx.h"
-#include "stm32l0xx_hal.h"
-
-/* USER CODE BEGIN INCLUDE */
 
 /* USER CODE END INCLUDE */
 
 /** @addtogroup USBD_OTG_DRIVER
-  * @brief Driver for Usb device.
   * @{
   */
 
@@ -63,26 +59,19 @@
   */
 
 /*---------- -----------*/
-#define USBD_MAX_NUM_INTERFACES     1U
+#define USBD_MAX_NUM_INTERFACES     3U
 /*---------- -----------*/
-#define USBD_MAX_NUM_CONFIGURATION     1U
+#define USBD_MAX_NUM_CONFIGURATION  1U
 /*---------- -----------*/
-#define USBD_MAX_STR_DESC_SIZ     512U
+#define USBD_MAX_STR_DESC_SIZ       512U
 /*---------- -----------*/
-#define USBD_DEBUG_LEVEL     0U
+#define USBD_DEBUG_LEVEL            0U
 /*---------- -----------*/
-#define USBD_SELF_POWERED     1U
-/*---------- -----------*/
-#define USBD_CUSTOMHID_OUTREPORT_BUF_SIZE     2U
-/*---------- -----------*/
-#define USBD_CUSTOM_HID_REPORT_DESC_SIZE     2U
-/*---------- -----------*/
-#define CUSTOM_HID_FS_BINTERVAL     0x5U
+#define USBD_SELF_POWERED           1U
 
 /****************************************/
 /* #define for FS and HS identification */
 #define DEVICE_FS 		0
-#define DEVICE_HS 		1
 
 /**
   * @}
@@ -92,19 +81,14 @@
   * @brief Aliases.
   * @{
   */
+
 /* Memory management macros */
 
-/** Alias for memory allocation. */
-#define USBD_malloc         malloc
-
-/** Alias for memory release. */
-#define USBD_free           free
-
 /** Alias for memory set. */
-#define USBD_memset         memset
+#define USBD_memset         /* Not used */
 
 /** Alias for memory copy. */
-#define USBD_memcpy         memcpy
+#define USBD_memcpy         /* Not used */
 
 /** Alias for delay. */
 #define USBD_Delay          HAL_Delay
@@ -173,3 +157,4 @@
 
 #endif /* __USBD_CONF__H__ */
 
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

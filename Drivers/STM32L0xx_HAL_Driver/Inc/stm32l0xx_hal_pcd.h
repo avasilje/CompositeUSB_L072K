@@ -119,6 +119,8 @@ typedef struct
                                        This parameter can be set to ENABLE or DISABLE        */
   void                    *pData;      /*!< Pointer to upper stack Handler */
 
+  uint32_t 				  pma_map;     /* USB memory allocation map */
+
 #if (USE_HAL_PCD_REGISTER_CALLBACKS == 1U)
   void (* SOFCallback)(struct __PCD_HandleTypeDef *hpcd);                              /*!< USB OTG PCD SOF callback                */
   void (* SetupStageCallback)(struct __PCD_HandleTypeDef *hpcd);                       /*!< USB OTG PCD Setup Stage callback        */
@@ -220,6 +222,10 @@ typedef struct
   */
 HAL_StatusTypeDef HAL_PCD_Init(PCD_HandleTypeDef *hpcd);
 HAL_StatusTypeDef HAL_PCD_DeInit(PCD_HandleTypeDef *hpcd);
+
+uint32_t HAL_PCD_PMA_Alloc(PCD_HandleTypeDef *hpcd, uint32_t ep_mps);
+void HAL_PCD_PMA_Free(PCD_HandleTypeDef *hpcd, uint32_t ep_pmaadress, uint32_t ep_mps);
+
 void HAL_PCD_MspInit(PCD_HandleTypeDef *hpcd);
 void HAL_PCD_MspDeInit(PCD_HandleTypeDef *hpcd);
 

@@ -22,7 +22,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+//#include "stm32l0xx_ll_adc.h"
 #include "imon.h"
+#include "cdc_uart.h"
+#include "cdc_ictrl.h"
+#include "dev0.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,6 +57,10 @@ DMA_HandleTypeDef hdma_usart1_tx;
 /* USER CODE BEGIN PV */
 #define ADC_CH_NUM 2
 int16_t g_adc_samples[ADC_CH_NUM];		/* DMA destination */
+
+//extern USBD_Handle hUsbDevice;
+extern cdc_ictrl_t g_cdc_ictrl;
+extern cdc_uart_t g_cdc_uart1;
 
 /* USER CODE END PV */
 
@@ -115,6 +124,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
   imon_init(&g_adc_samples[1], &g_adc_samples[0]);
 
+  /* Link USB Device CDC interface with a corresponding Downface Interface (DFI) */
+  cdc_uart_init(&g_cdc_uart1, &g_cdc0, &huart1);
+  cdc_ictrl_init(&g_cdc1);
+
   HAL_TIM_Base_Start_IT(&htim6);
 
   HAL_ADC_Start_DMA(&hadc, (uint32_t*)&g_adc_samples[0], ADC_CH_NUM);
@@ -129,6 +142,14 @@ int main(void)
   {
     uint32_t now_tick = HAL_GetTick();
     imon_on_idle(now_tick);
+    dev0_on_idle(now_tick);
+
+    g_cdc_uart1.dfi.on_idle(&g_cdc_uart1.dfi);
+    g_cdc_ictrl.dfi.on_idle(&g_cdc_ictrl.dfi);
+#if NAVIG
+    cdc_uart_dfi_on_idle();
+    cdc_ictrl_dfi_on_idle();
+#endif
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
