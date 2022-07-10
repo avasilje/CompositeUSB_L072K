@@ -104,55 +104,13 @@ int8_t cdc_uart_set_line_encoding (UART_HandleTypeDef *huart, pstn_line_coding_t
 	return 0;
 }
 
-void cdc_uart_downstream_on_idle(uart_cdc_downstream_t *ds)
-{
-    if (ds->uart_ready_to_tx) {
-    	/* If no more data for UART TX request next data bunch from USB */
-	    if (USBD_OK == USBD_CDC_ReceivePacket(ds->hcdc)) {
-	  	    ds->uart_ready_to_tx = 0;
-	    }
-    }
-
-    if (ds->cdc_data_received) {
-    	__disable_irq();
-
-    	HAL_UART_Transmit_DMA(ds->huart,
-            ds->buff, ds->cdc_data_received);
-
-	    ds->cdc_data_received = 0;
-
-	    __enable_irq();
-
-    }
-}
-
-
-void cdc_uart_downstream_init (
-		uart_cdc_downstream_t *ds,
-		USBD_CDC_Handle *hcdc,
-		UART_HandleTypeDef *huart)
-{
-	ds->hcdc = hcdc;
-	ds->huart = huart;
-	ds->uart_ready_to_tx = 1;
-}
-
-void cdc_uart_upstream_init (
-		uart_cdc_upstream_t *us,
-		USBD_CDC_Handle *hcdc,
-		UART_HandleTypeDef *huart)
-{
-	us->hcdc = hcdc;
-	us->huart = huart;
-}
-
 /*
  * UART RX transaction not finished within reasonable time since
  * the last USB transaction.
  * Steal data from UART transaction and legalize them in the buffer.
  * The data will be transmitted in the idle loop
  */
-void uart_cdc_upstream_timer (uart_cdc_upstream_t *us)
+static void uart_cdc_upstream_timer (uart_cdc_upstream_t *us)
 {
 	UART_HandleTypeDef *huart = us->huart;
 	int bytes_avail;
@@ -199,6 +157,70 @@ void uart_cdc_upstream_timer (uart_cdc_upstream_t *us)
 	return;
 
 }
+
+static void cdc_uart_upstream_on_idle(uart_cdc_upstream_t *us)
+{
+	int bytes_available;
+
+	/* Initiate new RX transaction on UART if previous finished */
+	if (us->cont_rx) {
+		us->cont_rx = 0;
+		cdc_uart_upstream_rx_cont(us);
+	}
+
+	/* Send data upstream when available */
+	bytes_available = UART_CDC_UPSTREAM_AVAILABLE(us);
+	if (bytes_available) {
+		if (us->timeout == 0 || bytes_available >= CDC_DATA_IN_PACKET_SIZE) {
+			cdc_uart_upstream_send(us);
+		}
+	}
+
+	uart_cdc_upstream_timer(us);
+}
+
+static void cdc_uart_downstream_on_idle (uart_cdc_downstream_t *ds)
+{
+    if (ds->uart_ready_to_tx) {
+    	/* If no more data for UART TX, then request next data bunch from USB */
+	    if (USBD_OK == USBD_CDC_ReceivePacket(ds->hcdc)) {
+	  	    ds->uart_ready_to_tx = 0;
+	    }
+    }
+
+    if (ds->cdc_data_received) {
+    	__disable_irq();
+
+    	HAL_UART_Transmit_DMA(ds->huart,
+            ds->buff, ds->cdc_data_received);
+
+	    ds->cdc_data_received = 0;
+
+	    __enable_irq();
+
+    }
+}
+
+
+void cdc_uart_downstream_init (
+		uart_cdc_downstream_t *ds,
+		USBD_CDC_Handle *hcdc,
+		UART_HandleTypeDef *huart)
+{
+	ds->hcdc = hcdc;
+	ds->huart = huart;
+	ds->uart_ready_to_tx = 1;
+}
+
+void cdc_uart_upstream_init (
+		uart_cdc_upstream_t *us,
+		USBD_CDC_Handle *hcdc,
+		UART_HandleTypeDef *huart)
+{
+	us->hcdc = hcdc;
+	us->huart = huart;
+}
+
 
 /*****************************************************************************
  * Interrupt callbacks
@@ -297,7 +319,7 @@ static void cdc_uart_dfi_on_control(cdc_dfi_t *cdc_dfi, uint8_t cmd, uint8_t *bu
 	switch (cmd) {
 	case CDC_SET_LINE_CODING:
 		/* assert(length == sizeof(pstn_line_coding_t)) */
-		cdc_uart_set_line_encoding(huart, (pstn_line_coding_t*) buf);
+ 		cdc_uart_set_line_encoding(huart, (pstn_line_coding_t*) buf);
 		break;
 
 	case CDC_GET_LINE_CODING:
@@ -360,24 +382,11 @@ static void cdc_uart_dfi_us_rx_stop(struct cdc_dfi_s *cdc_dfi)
  */
 static void cdc_uart_dfi_on_idle (struct cdc_dfi_s *cdc_dfi)
 {
+	uart_cdc_downstream_t *ds = get_ds_by_dfi(cdc_dfi);
 	uart_cdc_upstream_t *us = get_us_by_dfi(cdc_dfi);
-	int bytes_available;
 
-	/* Initiate new RX transaction on UART if previous finished */
-	if (us->cont_rx) {
-		us->cont_rx = 0;
-		cdc_uart_upstream_rx_cont(us);
-	}
-
-	/* Send data upstream when available */
-	bytes_available = UART_CDC_UPSTREAM_AVAILABLE(us);
-	if (bytes_available) {
-		if (us->timeout == 0 || bytes_available >= CDC_DATA_IN_PACKET_SIZE) {
-			cdc_uart_upstream_send(us);
-		}
-	}
-
-	uart_cdc_upstream_timer(us);
+	cdc_uart_downstream_on_idle(ds);
+	cdc_uart_upstream_on_idle(us);
 }
 
 void cdc_dfi_uart_init (cdc_dfi_t *cdc_dfi, cdc_uart_t *cdc_uart)

@@ -453,7 +453,7 @@ uint8_t USBD_CDC_DataOut (union intf_dev_handle_u h, uint8_t epnum)
        NAKed till the end of the application Xfer */
     CDC_Receive(hcdc, rx_length);
 
-    return USBD_OK;
+    return USBD_BUSY;
 }
 
 /**
